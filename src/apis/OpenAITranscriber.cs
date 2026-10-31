@@ -87,16 +87,32 @@ namespace LiveCaptionsTranslator.apis
         }
 
 
+        private static string sessionStatus = "Stopped";
+        private static string? captureStatus = null;
+
         private static void SetStatus(string status)
         {
-            Status = status;
+            sessionStatus = status;
+            UpdateStatus();
+        }
+
+        // What the app-only capture is doing, e.g. waiting for the app to start.
+        private static void SetCaptureStatus(string? status)
+        {
+            captureStatus = status;
+            UpdateStatus();
+        }
+
+        private static void UpdateStatus()
+        {
+            Status = captureStatus == null ? sessionStatus : $"{sessionStatus} · {captureStatus}";
             StatusChanged?.Invoke();
         }
 
         private static async Task RunAsync(CancellationToken token)
         {
             // Per run, so that a quick restart never shares audio with the previous run.
-            LoopbackAudioCapture? capture = null;
+            IPcmAudioSource? capture = null;
             var audioQueue = new ConcurrentQueue<short[]>();
             try
             {
@@ -174,9 +190,22 @@ namespace LiveCaptionsTranslator.apis
             }
         }
 
-        private static LoopbackAudioCapture StartCapture(ConcurrentQueue<short[]> audioQueue)
+        private static IPcmAudioSource StartCapture(ConcurrentQueue<short[]> audioQueue)
         {
-            var capture = new LoopbackAudioCapture();
+            // One app only (e.g. the game), or everything the PC plays.
+            string appName = Translator.Setting.Transcription.AudioApp;
+            IPcmAudioSource capture;
+            if (string.IsNullOrWhiteSpace(appName))
+            {
+                SetCaptureStatus(null);
+                capture = new LoopbackAudioCapture();
+            }
+            else
+            {
+                var appCapture = new ProcessLoopbackCapture(appName);
+                appCapture.StatusChanged += SetCaptureStatus;
+                capture = appCapture;
+            }
             capture.SamplesAvailable += samples => audioQueue.Enqueue(samples);
             capture.Start();
             return capture;
@@ -188,7 +217,7 @@ namespace LiveCaptionsTranslator.apis
             Task.Run(Translator.SwitchToLiveCaptionsForCredit);
         }
 
-        private static void StopCapture(LoopbackAudioCapture? current)
+        private static void StopCapture(IPcmAudioSource? current)
         {
             if (current == null)
                 return;

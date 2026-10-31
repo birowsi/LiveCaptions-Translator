@@ -28,6 +28,7 @@ namespace LiveCaptionsTranslator.models
         private string? ignoredUpdateVersion;
 
         private TranscriptionSetting transcription;
+        private VrOverlaySetting vrOverlay;
 
         private MainWindowState mainWindowState;
         private OverlayWindowState overlayWindowState;
@@ -132,6 +133,16 @@ namespace LiveCaptionsTranslator.models
             }
         }
 
+        public VrOverlaySetting VrOverlay
+        {
+            get => vrOverlay;
+            set
+            {
+                vrOverlay = value;
+                OnPropertyChanged("VrOverlay");
+            }
+        }
+
         public MainWindowState MainWindow
         {
             get => mainWindowState;
@@ -198,6 +209,7 @@ namespace LiveCaptionsTranslator.models
                      "REMOVE all 🔤 when you output.";
 
             transcription = new TranscriptionSetting();
+            vrOverlay = new VrOverlaySetting();
             mainWindowState = new MainWindowState();
             overlayWindowState = new OverlayWindowState();
 

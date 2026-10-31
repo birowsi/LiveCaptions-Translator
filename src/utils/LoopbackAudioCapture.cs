@@ -4,11 +4,21 @@ using NAudio.Wave.SampleProviders;
 
 namespace LiveCaptionsTranslator.utils
 {
+    public interface IPcmAudioSource : IDisposable
+    {
+        /// <summary>
+        /// Raised on a capture thread with a chunk of mono PCM16 samples at 24 kHz.
+        /// </summary>
+        event Action<short[]>? SamplesAvailable;
+        void Start();
+        void Stop();
+    }
+
     /*
      * Captures what the PC is playing (WASAPI loopback of the default output device)
      * and converts it to mono 16-bit PCM at 24 kHz, the format the Realtime API expects.
      */
-    public sealed class LoopbackAudioCapture : IDisposable
+    public sealed class LoopbackAudioCapture : IPcmAudioSource
     {
         public const int SAMPLE_RATE = 24000;
 

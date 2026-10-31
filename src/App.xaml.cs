@@ -18,11 +18,13 @@ namespace LiveCaptionsTranslator
 
             if (Translator.Setting?.Transcription.IsOpenAI == true)
                 OpenAITranscriber.Start();
+            VrSubtitleOverlay.Start();
         }
 
         private static void OnProcessExit(object sender, EventArgs e)
         {
             OpenAITranscriber.Stop();
+            VrSubtitleOverlay.Stop();
             if (Translator.Window != null)
             {
                 LiveCaptionsHandler.RestoreLiveCaptions(Translator.Window);

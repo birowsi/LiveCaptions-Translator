@@ -38,6 +38,7 @@ namespace LiveCaptionsTranslator.models
         private int silenceDurationMs = 500;
         private int maxTurnSeconds = 12;
         private string delay = "low";
+        private string audioApp = "";
 
         public string Source
         {
@@ -134,6 +135,17 @@ namespace LiveCaptionsTranslator.models
             {
                 delay = value;
                 OnPropertyChanged("Delay");
+            }
+        }
+
+        // Process name of the only app to listen to (e.g. a game). Empty: everything the PC plays.
+        public string AudioApp
+        {
+            get => audioApp;
+            set
+            {
+                audioApp = value;
+                OnPropertyChanged("AudioApp");
             }
         }
 

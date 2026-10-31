@@ -58,9 +58,19 @@ namespace LiveCaptionsTranslator
         {
             sectionReferences["SpeechRecognition"] = SpeechRecognitionSection;
             sectionReferences["Usage"] = UsageSection;
+            sectionReferences["VrOverlay"] = VrOverlaySection;
+
+            VrAnchorBox.ItemsSource = VrOverlaySetting.Anchors;
+            VrAnchorBox.SelectedItem = Translator.Setting.VrOverlay.Anchor;
+            Action onVrStatusChanged = () => Dispatcher.BeginInvoke(new Action(
+                () => VrOverlayStatusText.Text = $"Status: {VrSubtitleOverlay.Status}"));
+            VrSubtitleOverlay.StatusChanged += onVrStatusChanged;
+            Closed += (sender, args) => VrSubtitleOverlay.StatusChanged -= onVrStatusChanged;
+            VrOverlayStatusText.Text = $"Status: {VrSubtitleOverlay.Status}";
 
             TranscriptionSourceBox.ItemsSource = TranscriptionSetting.Sources;
             TranscriptionSourceBox.SelectedItem = Translator.Setting.Transcription.Source;
+            appliedAudioApp = Translator.Setting.Transcription.AudioApp.Trim();
             TranscriptionModelBox.ItemsSource = TranscriptionSetting.Models;
             TranscriptionModelBox.SelectedItem = Translator.Setting.Transcription.Model;
             TranscriptionDelayBox.ItemsSource = TranscriptionSetting.Delays;
@@ -133,6 +143,50 @@ namespace LiveCaptionsTranslator
                 Task.Run(Translator.ApplyCaptionSource);
             (App.Current.MainWindow as MainWindow)?.UpdateListenButton();
             UpdateTranscriptionStatus();
+        }
+
+        // Apps that have a window, as candidates for listening to one app only.
+        private void AudioAppBox_DropDownOpened(object sender, EventArgs e)
+        {
+            string current = AudioAppBox.Text;
+            var names = System.Diagnostics.Process.GetProcesses()
+                .Where(p =>
+                {
+                    try { return p.MainWindowHandle != IntPtr.Zero && p.Id != Environment.ProcessId; }
+                    catch (InvalidOperationException) { return false; }
+                })
+                .Select(p => p.ProcessName)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            AudioAppBox.ItemsSource = names;
+            AudioAppBox.Text = current;
+        }
+
+        private void AudioAppBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (e.AddedItems.Count > 0 && e.AddedItems[0] is string name)
+            {
+                Translator.Setting.Transcription.AudioApp = name;
+                ApplyAudioApp();
+            }
+        }
+
+        private void AudioAppBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            ApplyAudioApp();
+        }
+
+        private string? appliedAudioApp = null;
+
+        // Restart listening only when the app actually changed.
+        private void ApplyAudioApp()
+        {
+            string audioApp = Translator.Setting.Transcription.AudioApp.Trim();
+            if (audioApp == appliedAudioApp)
+                return;
+            appliedAudioApp = audioApp;
+            OpenAITranscriber.Restart();
         }
 
         private void SetBalanceButton_Click(object sender, RoutedEventArgs e)

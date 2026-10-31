@@ -34,10 +34,16 @@
 		<PackageReference Include="CsvHelper" Version="33.0.1" />
 		<PackageReference Include="Microsoft.Data.Sqlite" Version="9.0.1" />
 		<PackageReference Include="NAudio.Wasapi" Version="2.2.1" />
+		<PackageReference Include="OpenVR.NET" Version="0.8.5" />
 		<PackageReference Include="System.Net.Http" Version="4.3.4" />
 		<PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" />
 		<PackageReference Include="System.Text.Json" Version="8.0.5" />
 		<PackageReference Include="WPF-UI" Version="4.0.1" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<!-- SteamVR's native API, shipped in the OpenVR.NET package but not copied by it. -->
+		<None Include="$(NuGetPackageRoot)openvr.net/0.8.5/content/openvr_api.dll" Link="openvr_api.dll" CopyToOutputDirectory="PreserveNewest" Visible="false" />
 	</ItemGroup>
 
 	<ItemGroup>
