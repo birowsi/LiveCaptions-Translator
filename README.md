@@ -1,4 +1,31 @@
-﻿<div align="center">
+﻿## Fork features
+
+This is my fork of [SakiRinn/LiveCaptions-Translator](https://github.com/SakiRinn/LiveCaptions-Translator). I mostly use it to watch Japanese streams with Korean subtitles, so the changes lean that way. Everything from the original still works, the stuff below is extra.
+
+**Speech recognition without Windows LiveCaptions**
+- The app can listen to whatever your PC is playing and send it to OpenAI's transcription models instead of reading LiveCaptions. Pick `gpt-transcribe` (cheaper, a line shows up once the person finishes talking) or `gpt-live-transcribe` (text appears while they're still talking, about 4x the price).
+- Long silence isn't sent, so you don't pay for dead air.
+- There's a keywords box for names and terms. Writing something like `宝鐘マリン=호쇼 마린` helps recognition and also pins how the name gets translated.
+- LiveCaptions is still there as an option, and the app falls back to it on its own (see below).
+
+**Translation**
+- A `GPT (API Key)` engine on the Responses API. It defaults to `gpt-6-luna` with reasoning off, which costs a couple of cents per hour of subtitles.
+- A `ChatGPT` engine that signs in with your ChatGPT account instead of an API key. Heads up: OpenAI only offers this for personal Plus/Pro plans. My Business workspace gets refused at sign-in, and I haven't been able to test a personal plan yet.
+- Every line is translated once and kept in order. The original was built around LiveCaptions rewriting the same sentence over and over, so with finished lines it would sometimes drop one.
+
+**Keeping an eye on spending**
+- API spend is tracked from the usage OpenAI reports back on every request. Put in your starting balance and the main window shows what's left.
+- When the credit runs out it keeps going instead of stopping: translation moves to ChatGPT (if you're signed in) and then Google, and speech recognition moves to Windows LiveCaptions. LiveCaptions gets started in the background once the balance is low, so the handoff is quick.
+
+**Small stuff**
+- The main window can show the last few translations above the current one (uses the Display Sentences setting).
+- Window positions are remembered on multi-monitor setups. Before, a window on a second monitor got reset on every launch.
+
+To try it: paste your API key from platform.openai.com under API Setting → GPT (API Key), set API Setting → Speech Recognition → Source to `OpenAI`, and hit the mic button on the main window.
+
+---
+
+<div align="center">
 
 <img src="src/LiveCaptions-Translator.ico" width="128" height="128" alt="LiveCaptions-Translator Icon"/>
 
