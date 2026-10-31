@@ -54,6 +54,7 @@ namespace LiveCaptionsTranslator
         {
             OriginalCaption.FontSize = Translator.Setting.MainWindow.OriginalFontSize;
             TranslatedCaption.FontSize = Translator.Setting.MainWindow.TranslatedFontSize;
+            PreviousTranslations.FontSize = Translator.Setting.MainWindow.TranslatedFontSize;
         }
 
         private void OriginalCard_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
@@ -105,9 +106,13 @@ namespace LiveCaptionsTranslator
                     minHeight: CARD_HEIGHT * (Translator.Setting.DisplaySentences + 1),
                     maxHeight: CARD_HEIGHT * (Translator.Setting.DisplaySentences + 1));
             else
-                (App.Current.MainWindow as MainWindow).AutoHeightAdjust(
-                    minHeight: (int)App.Current.MainWindow.MinHeight,
-                    maxHeight: (int)App.Current.MainWindow.MinHeight);
+            {
+                // Room for the previous translations shown above the current one.
+                int historyHeight = (int)(Translator.Setting.MainWindow.TranslatedFontSize * 1.4 *
+                                          Translator.Setting.DisplaySentences);
+                int height = (int)App.Current.MainWindow.MinHeight + historyHeight;
+                (App.Current.MainWindow as MainWindow).AutoHeightAdjust(minHeight: height, maxHeight: height);
+            }
         }
     }
 }

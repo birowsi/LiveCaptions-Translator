@@ -17,6 +17,8 @@ namespace LiveCaptionsTranslator
         private static Setting? setting = null;
 
         private static readonly ConcurrentQueue<string> pendingTextQueue = new();
+        // Recent lines from OpenAI speech recognition, for the overlay history.
+        private static readonly Queue<string> recentTranscripts = new();
         private static readonly TranslationTaskQueue translationTaskQueue = new();
 
         public static AutomationElement? Window
@@ -104,7 +106,13 @@ namespace LiveCaptionsTranslator
         {
             Caption.OriginalCaption = text;
             Caption.DisplayOriginalCaption = TextUtil.ShortenDisplaySentence(text, TextUtil.VERYLONG_THRESHOLD);
-            Caption.OverlayOriginalCaption = text;
+            Caption.OverlayOriginalCaption = WithRecentTranscripts(text);
+            lock (recentTranscripts)
+            {
+                if (recentTranscripts.Count >= Caption.MAX_CONTEXTS)
+                    recentTranscripts.Dequeue();
+                recentTranscripts.Enqueue(text);
+            }
             pendingTextQueue.Enqueue(text);
         }
 
@@ -114,7 +122,26 @@ namespace LiveCaptionsTranslator
         public static void ShowPartialTranscript(string text)
         {
             Caption.DisplayOriginalCaption = TextUtil.ShortenDisplaySentence(text, TextUtil.VERYLONG_THRESHOLD);
-            Caption.OverlayOriginalCaption = text;
+            Caption.OverlayOriginalCaption = WithRecentTranscripts(text);
+        }
+
+        // Like LiveCaptions mode, the overlay shows `DisplaySentences` previous lines before the current one.
+        private static string WithRecentTranscripts(string current)
+        {
+            List<string> previous;
+            lock (recentTranscripts)
+                previous = recentTranscripts.Reverse().Take(Setting.DisplaySentences).Reverse().ToList();
+
+            var text = new StringBuilder();
+            foreach (var line in previous.Append(current))
+            {
+                if (text.Length > 0 && Array.IndexOf(TextUtil.PUNC_EOS, text[^1]) == -1)
+                    text.Append(TextUtil.isCJChar(text[^1]) ? "。" : ". ");
+                else if (text.Length > 0 && !TextUtil.isCJChar(text[^1]))
+                    text.Append(' ');
+                text.Append(line);
+            }
+            return text.ToString();
         }
 
         public static void ShowNotice(string notice)
@@ -410,14 +437,18 @@ namespace LiveCaptionsTranslator
             Caption?.Contexts.Enqueue(lastLog);
 
             Caption?.OnPropertyChanged("DisplayLogCards");
+            Caption?.OnPropertyChanged("DisplayPreviousTranslations");
             Caption?.OnPropertyChanged("OverlayPreviousTranslation");
         }
 
         public static void ClearContexts()
         {
             Caption?.Contexts.Clear();
+            lock (recentTranscripts)
+                recentTranscripts.Clear();
 
             Caption?.OnPropertyChanged("DisplayLogCards");
+            Caption?.OnPropertyChanged("DisplayPreviousTranslations");
             Caption?.OnPropertyChanged("OverlayPreviousTranslation");
         }
 

@@ -170,6 +170,7 @@ namespace LiveCaptionsTranslator
         {
             Translator.Setting.MainWindow.CaptionLogEnabled = !Translator.Setting.MainWindow.CaptionLogEnabled;
             ShowLogCard(Translator.Setting.MainWindow.CaptionLogEnabled);
+            Translator.Caption.OnPropertyChanged("DisplayPreviousTranslations");
             CaptionPage.Instance?.AutoHeight();
         }
 

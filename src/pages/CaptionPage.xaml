@@ -46,15 +46,35 @@
             Padding="8"
             VerticalAlignment="Stretch"
             PreviewMouseWheel="TranslatedCard_PreviewMouseWheel">
-            <TextBlock
-                x:Name="TranslatedCaption"
-                Background="Transparent"
-                Cursor="Hand"
-                FontSize="18"
-                MouseLeftButtonDown="TextBlock_MouseLeftButtonDown"
-                Style="{StaticResource CaptionBlockStyle}"
-                Text="{Binding DisplayTranslatedCaption, UpdateSourceTrigger=PropertyChanged}"
-                ToolTip="Click to Copy, Ctrl+Scroll to Resize Font" />
+            <StackPanel>
+                <!--  Previous translations (Display Sentences), dimmed, oldest first  -->
+                <TextBlock
+                    x:Name="PreviousTranslations"
+                    Margin="0,0,0,2"
+                    Background="Transparent"
+                    FontSize="18"
+                    Opacity="0.5"
+                    Text="{Binding DisplayPreviousTranslations, Mode=OneWay}">
+                    <TextBlock.Style>
+                        <Style BasedOn="{StaticResource CaptionBlockStyle}" TargetType="TextBlock">
+                            <Style.Triggers>
+                                <Trigger Property="Text" Value="">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+                <TextBlock
+                    x:Name="TranslatedCaption"
+                    Background="Transparent"
+                    Cursor="Hand"
+                    FontSize="18"
+                    MouseLeftButtonDown="TextBlock_MouseLeftButtonDown"
+                    Style="{StaticResource CaptionBlockStyle}"
+                    Text="{Binding DisplayTranslatedCaption, UpdateSourceTrigger=PropertyChanged}"
+                    ToolTip="Click to Copy, Ctrl+Scroll to Resize Font" />
+            </StackPanel>
         </ui:Card>
 
         <ui:Card

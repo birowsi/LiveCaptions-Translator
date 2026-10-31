@@ -30,6 +30,28 @@ namespace LiveCaptionsTranslator.models
         public IEnumerable<TranslationHistoryEntry> DisplayLogCards =>
             GetPreviousContexts(Translator.Setting.DisplaySentences).Reverse();
 
+        // Previous translations above the current one on the main window, oldest first.
+        // Not needed while log cards (which already show history) are enabled.
+        public string DisplayPreviousTranslations
+        {
+            get
+            {
+                if (Translator.Setting.MainWindow.CaptionLogEnabled)
+                    return string.Empty;
+                try
+                {
+                    return string.Join("\n", GetPreviousContexts(Translator.Setting.DisplaySentences)
+                        .Select(entry => RegexPatterns.NoticePrefix().Replace(entry.TranslatedText, "").Trim())
+                        .Where(text => text.Length > 0));
+                }
+                catch (InvalidOperationException)
+                {
+                    // Contexts changed while reading; the next update shows it.
+                    return string.Empty;
+                }
+            }
+        }
+
         public string DisplayOriginalCaption
         {
             get => displayOriginalCaption;
