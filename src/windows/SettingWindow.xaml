@@ -292,7 +292,7 @@
                                     <StackPanel Margin="15,0,15,0">
                                         <ui:TextBlock
                                             Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                            Text="Where the source captions come from. OpenAI listens to your PC audio and transcribes it with gpt-transcribe (0.0045 USD per minute of audio). Long silence is not sent."
+                                            Text="Where the source captions come from. OpenAI listens to your PC audio. gpt-transcribe writes each line after it ends (0.0045 USD per minute, cheapest). gpt-live-transcribe shows text while someone is still talking (0.017 USD per minute). Long silence is not sent."
                                             TextWrapping="Wrap" />
                                         <Grid Margin="0,12,0,0">
                                             <Grid.ColumnDefinitions>
@@ -338,7 +338,37 @@
                                             </StackPanel>
                                         </Grid>
 
-                                        <ui:TextBlock Margin="2.5,12,0,5" Text="Keywords (names and terms, one per line)" />
+                                        <Grid Margin="0,12,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" Orientation="Vertical">
+                                                <ui:TextBlock Margin="2.5,0,0,5" Text="Model" />
+                                                <ComboBox
+                                                    x:Name="TranscriptionModelBox"
+                                                    Width="190"
+                                                    Height="30"
+                                                    Padding="10,4,10,7"
+                                                    FontSize="13.3"
+                                                    SelectedItem="{Binding Transcription.Model, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                            </StackPanel>
+                                            <StackPanel
+                                                Grid.Column="1"
+                                                Margin="15,0,0,0"
+                                                Orientation="Vertical">
+                                                <ui:TextBlock Margin="2.5,0,0,5" Text="Delay (gpt-live-transcribe only)" />
+                                                <ComboBox
+                                                    x:Name="TranscriptionDelayBox"
+                                                    Width="130"
+                                                    Height="30"
+                                                    Padding="10,4,10,7"
+                                                    FontSize="13.3"
+                                                    SelectedItem="{Binding Transcription.Delay, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                            </StackPanel>
+                                        </Grid>
+
+                                        <ui:TextBlock Margin="2.5,12,0,5" Text="Keywords (names and terms, one per line. Add =번역 to fix the translation, e.g. 宝鐘マリン=호쇼 마린)" />
                                         <ui:TextBox
                                             Height="70"
                                             AcceptsReturn="True"
@@ -414,7 +444,7 @@
                                         <ui:TextBlock
                                             Margin="2.5,8,0,0"
                                             Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                            Text="Language, keywords, context and voice settings apply when listening restarts (toggle the microphone button on the main window)."
+                                            Text="Model, language, keywords, context and voice settings apply when listening restarts (toggle the microphone button on the main window)."
                                             TextWrapping="Wrap" />
                                         <ui:TextBlock
                                             x:Name="TranscriptionStatusText"

@@ -254,7 +254,8 @@ namespace LiveCaptionsTranslator
 
                     if (LogOnlyFlag)
                     {
-                        bool isOverwrite = await IsOverwrite(originalSnapshot);
+                        // Sentences from OpenAI speech recognition are final, never revisions of the previous one.
+                        bool isOverwrite = !Setting.Transcription.IsOpenAI && await IsOverwrite(originalSnapshot);
                         await LogOnly(originalSnapshot, isOverwrite);
                     }
                     else

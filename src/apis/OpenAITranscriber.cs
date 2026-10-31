@@ -28,6 +28,10 @@ namespace LiveCaptionsTranslator.apis
         private const short SILENCE_PEAK = 50;
         // Keep sending silence this long after sound stops so that server VAD can end the turn.
         private static readonly TimeSpan SILENCE_TAIL = TimeSpan.FromSeconds(2);
+        // Above this RMS a chunk counts as voice for the live model's own line breaks (about -40 dBFS).
+        private const double VOICE_RMS = 330;
+        // Sentence-final characters that let the live model end a line without waiting for a pause.
+        private static readonly char[] LINE_END_CHARS = ['。', '？', '！', '?', '!', '…', '」', '』'];
         // Give up waiting for a turn's transcript after this long and move on to the next one.
         private static readonly TimeSpan TRANSCRIPT_TIMEOUT = TimeSpan.FromSeconds(15);
 
@@ -40,8 +44,6 @@ namespace LiveCaptionsTranslator.apis
 
         private static readonly object stateLock = new();
         private static CancellationTokenSource? runCTS = null;
-        private static LoopbackAudioCapture? capture = null;
-        private static readonly ConcurrentQueue<short[]> audioQueue = new();
 
         public static event Action? StatusChanged;
 
@@ -59,6 +61,17 @@ namespace LiveCaptionsTranslator.apis
                 Task.Run(() => RunAsync(token));
             }
             StatusChanged?.Invoke();
+        }
+
+        /// <summary>
+        /// Restarts listening so that changed settings (model, language, keywords...) take effect.
+        /// </summary>
+        public static void Restart()
+        {
+            if (!IsRunning)
+                return;
+            Stop();
+            Start();
         }
 
         public static void Stop()
@@ -82,9 +95,12 @@ namespace LiveCaptionsTranslator.apis
 
         private static async Task RunAsync(CancellationToken token)
         {
+            // Per run, so that a quick restart never shares audio with the previous run.
+            LoopbackAudioCapture? capture = null;
+            var audioQueue = new ConcurrentQueue<short[]>();
             try
             {
-                StartCapture();
+                capture = StartCapture(audioQueue);
             }
             catch (Exception ex)
             {
@@ -112,7 +128,7 @@ namespace LiveCaptionsTranslator.apis
                         continue;
                     }
 
-                    var result = await RunSessionAsync(apiKey, token);
+                    var result = await RunSessionAsync(apiKey, audioQueue, token);
                     if (token.IsCancellationRequested)
                         break;
 
@@ -132,7 +148,7 @@ namespace LiveCaptionsTranslator.apis
             catch (OperationCanceledException) { }
             finally
             {
-                StopCapture();
+                StopCapture(capture);
                 lock (stateLock)
                 {
                     if (runCTS?.Token == token)
@@ -142,18 +158,16 @@ namespace LiveCaptionsTranslator.apis
             }
         }
 
-        private static void StartCapture()
+        private static LoopbackAudioCapture StartCapture(ConcurrentQueue<short[]> audioQueue)
         {
-            audioQueue.Clear();
-            capture = new LoopbackAudioCapture();
+            var capture = new LoopbackAudioCapture();
             capture.SamplesAvailable += samples => audioQueue.Enqueue(samples);
             capture.Start();
+            return capture;
         }
 
-        private static void StopCapture()
+        private static void StopCapture(LoopbackAudioCapture? current)
         {
-            var current = capture;
-            capture = null;
             if (current == null)
                 return;
             try
@@ -162,7 +176,6 @@ namespace LiveCaptionsTranslator.apis
                 current.Dispose();
             }
             catch (Exception) { }
-            audioQueue.Clear();
         }
 
         private record SessionResult(bool IsFatal, bool WasConnected, string Message);
@@ -170,7 +183,17 @@ namespace LiveCaptionsTranslator.apis
         private class SessionState
         {
             public string Model = "gpt-transcribe";
+            public bool IsLive = false;
             public DateTime LastSoundTime = DateTime.MinValue;
+            // Live model: the app decides where lines end (no server VAD).
+            public DateTime LastVoiceTime = DateTime.MinValue;
+            public DateTime LastDeltaTime = DateTime.MinValue;
+            public bool HasUncommittedSpeech = false;
+            public DateTime CommitSentTime = DateTime.MinValue;
+            public readonly StringBuilder LiveText = new();
+            // Audio sent since the last commit, as a usage estimate when an event carries no duration.
+            public double SentSecondsSinceCommit = 0;
+            public readonly Dictionary<string, double> ItemAudioSeconds = new();
             public bool IsSpeaking = false;
             public DateTime TurnStartTime = DateTime.MinValue;
             // Committed items in order, to emit transcripts in speech order.
@@ -183,7 +206,8 @@ namespace LiveCaptionsTranslator.apis
             public string? FatalError = null;
         }
 
-        private static async Task<SessionResult> RunSessionAsync(string apiKey, CancellationToken token)
+        private static async Task<SessionResult> RunSessionAsync(string apiKey, ConcurrentQueue<short[]> audioQueue,
+            CancellationToken token)
         {
             using var ws = new ClientWebSocket();
             ws.Options.SetRequestHeader("Authorization", $"Bearer {apiKey}");
@@ -207,12 +231,17 @@ namespace LiveCaptionsTranslator.apis
             }
 
             var settings = Translator.Setting.Transcription;
-            var state = new SessionState { Model = string.IsNullOrWhiteSpace(settings.Model) ? "gpt-transcribe" : settings.Model };
+            var state = new SessionState
+            {
+                Model = string.IsNullOrWhiteSpace(settings.Model) ? TranscriptionSetting.MODEL_TRANSCRIBE : settings.Model,
+                IsLive = settings.IsLiveModel
+            };
             await SendJsonAsync(ws, CreateSessionUpdate(settings, state.Model), token);
             SetStatus("Listening");
 
             using var sessionCTS = CancellationTokenSource.CreateLinkedTokenSource(token);
-            var sendTask = SendLoopAsync(ws, state, sessionCTS.Token);
+            audioQueue.Clear();
+            var sendTask = SendLoopAsync(ws, state, audioQueue, sessionCTS.Token);
             string closeReason;
             try
             {
@@ -252,6 +281,19 @@ namespace LiveCaptionsTranslator.apis
                 transcription["keywords"] = keywords;
             if (!string.IsNullOrWhiteSpace(settings.Prompt))
                 transcription["prompt"] = settings.Prompt.Trim();
+            if (settings.IsLiveModel && !string.IsNullOrWhiteSpace(settings.Delay))
+                transcription["delay"] = settings.Delay;
+
+            // Live models don't support server VAD: the app commits each line itself.
+            object? turnDetection = settings.IsLiveModel
+                ? null
+                : new
+                {
+                    type = "server_vad",
+                    threshold = Math.Clamp(settings.VadThreshold, 0.0, 1.0),
+                    prefix_padding_ms = 300,
+                    silence_duration_ms = Math.Clamp(settings.SilenceDurationMs, 200, 3000),
+                };
 
             return new
             {
@@ -261,24 +303,19 @@ namespace LiveCaptionsTranslator.apis
                     type = "transcription",
                     audio = new
                     {
-                        input = new
+                        input = new Dictionary<string, object?>
                         {
-                            format = new { type = "audio/pcm", rate = LoopbackAudioCapture.SAMPLE_RATE },
-                            transcription,
-                            turn_detection = new
-                            {
-                                type = "server_vad",
-                                threshold = Math.Clamp(settings.VadThreshold, 0.0, 1.0),
-                                prefix_padding_ms = 300,
-                                silence_duration_ms = Math.Clamp(settings.SilenceDurationMs, 200, 3000),
-                            }
+                            { "format", new { type = "audio/pcm", rate = LoopbackAudioCapture.SAMPLE_RATE } },
+                            { "transcription", transcription },
+                            { "turn_detection", turnDetection },
                         }
                     }
                 }
             };
         }
 
-        private static async Task SendLoopAsync(ClientWebSocket ws, SessionState state, CancellationToken token)
+        private static async Task SendLoopAsync(ClientWebSocket ws, SessionState state,
+            ConcurrentQueue<short[]> audioQueue, CancellationToken token)
         {
             var pending = new List<short>(SAMPLES_PER_CHUNK * 4);
             var lastTick = DateTime.UtcNow;
@@ -306,14 +343,14 @@ namespace LiveCaptionsTranslator.apis
                     continue;
 
                 bool isSilent = true;
+                double sumSquares = 0;
                 foreach (var sample in pending)
                 {
                     if (sample > SILENCE_PEAK || sample < -SILENCE_PEAK)
-                    {
                         isSilent = false;
-                        break;
-                    }
+                    sumSquares += (double)sample * sample;
                 }
+                bool isVoice = Math.Sqrt(sumSquares / pending.Count) > VOICE_RMS;
                 if (!isSilent)
                     state.LastSoundTime = now;
 
@@ -323,20 +360,70 @@ namespace LiveCaptionsTranslator.apis
                     var bytes = new byte[pending.Count * 2];
                     Buffer.BlockCopy(pending.ToArray(), 0, bytes, 0, bytes.Length);
                     await SendJsonAsync(ws, new { type = "input_audio_buffer.append", audio = Convert.ToBase64String(bytes) }, token);
+                    lock (state)
+                        state.SentSecondsSinceCommit += (double)pending.Count / LoopbackAudioCapture.SAMPLE_RATE;
                 }
                 pending.Clear();
 
-                // Someone talking without a pause: cut the turn so the subtitle doesn't lag too far behind.
-                int maxTurn = Translator.Setting.Transcription.MaxTurnSeconds;
-                if (state.IsSpeaking && maxTurn > 0 && now - state.TurnStartTime > TimeSpan.FromSeconds(maxTurn))
+                if (state.IsLive)
+                    await CommitLiveLineIfEndedAsync(ws, state, isVoice, now, token);
+                else
                 {
-                    state.TurnStartTime = now;
-                    await SendJsonAsync(ws, new { type = "input_audio_buffer.commit" }, token);
+                    // Someone talking without a pause: cut the turn so the subtitle doesn't lag too far behind.
+                    int maxTurn = Translator.Setting.Transcription.MaxTurnSeconds;
+                    if (state.IsSpeaking && maxTurn > 0 && now - state.TurnStartTime > TimeSpan.FromSeconds(maxTurn))
+                    {
+                        state.TurnStartTime = now;
+                        await SendJsonAsync(ws, new { type = "input_audio_buffer.commit" }, token);
+                    }
                 }
 
                 lock (state)
                     FlushTranscripts(state, now);
             }
+        }
+
+        /// <summary>
+        /// Live model: end the current line on a pause, a sentence-final character, or when it gets too long.
+        /// </summary>
+        private static async Task CommitLiveLineIfEndedAsync(ClientWebSocket ws, SessionState state, bool isVoice,
+            DateTime now, CancellationToken token)
+        {
+            var settings = Translator.Setting.Transcription;
+            bool shouldCommit;
+            lock (state)
+            {
+                if (isVoice)
+                {
+                    state.LastVoiceTime = now;
+                    if (!state.HasUncommittedSpeech)
+                    {
+                        state.HasUncommittedSpeech = true;
+                        state.TurnStartTime = now;
+                    }
+                }
+                // Wait for the previous commit to be acknowledged before deciding again.
+                if (!state.HasUncommittedSpeech || now - state.CommitSentTime < TimeSpan.FromSeconds(1))
+                    return;
+
+                string text = state.LiveText.ToString().TrimEnd();
+                bool isPause = now - state.LastVoiceTime >= TimeSpan.FromMilliseconds(Math.Clamp(settings.SilenceDurationMs, 200, 3000));
+                bool isSentenceEnd = text.Length > 0 && LINE_END_CHARS.Contains(text[^1]) &&
+                                     now - state.LastDeltaTime >= TimeSpan.FromMilliseconds(300);
+                bool isTooLong = settings.MaxTurnSeconds > 0 &&
+                                 now - state.TurnStartTime >= TimeSpan.FromSeconds(settings.MaxTurnSeconds);
+
+                shouldCommit = isPause || isSentenceEnd || isTooLong;
+                if (shouldCommit)
+                {
+                    state.HasUncommittedSpeech = isVoice && !isPause;
+                    state.TurnStartTime = now;
+                    state.CommitSentTime = now;
+                    state.LiveText.Clear();
+                }
+            }
+            if (shouldCommit)
+                await SendJsonAsync(ws, new { type = "input_audio_buffer.commit" }, token);
         }
 
         private static async Task<string> ReceiveLoopAsync(ClientWebSocket ws, SessionState state, CancellationToken token)
@@ -397,7 +484,10 @@ namespace LiveCaptionsTranslator.apis
                     {
                         state.CommittedItems.Add(itemId);
                         state.CommitTimes[itemId] = DateTime.UtcNow;
+                        state.ItemAudioSeconds[itemId] = state.SentSecondsSinceCommit;
+                        state.SentSecondsSinceCommit = 0;
                     }
+                    state.CommitSentTime = DateTime.MinValue;
                     break;
 
                 case "conversation.item.input_audio_transcription.delta":
@@ -406,6 +496,12 @@ namespace LiveCaptionsTranslator.apis
                         if (!state.Partials.TryGetValue(itemId, out var partial))
                             state.Partials[itemId] = partial = new StringBuilder();
                         partial.Append(delta.GetString());
+                        if (!state.CommittedItems.Contains(itemId))
+                        {
+                            // Text of the line still being spoken (live model).
+                            state.LiveText.Append(delta.GetString());
+                            state.LastDeltaTime = DateTime.UtcNow;
+                        }
                         // Only show the partial text of the oldest pending turn to keep the order.
                         if (state.CommittedItems.Count == 0 || state.CommittedItems[0] == itemId)
                             Translator.ShowPartialTranscript(partial.ToString());
@@ -448,9 +544,11 @@ namespace LiveCaptionsTranslator.apis
                 else if (usage.TryGetProperty("duration", out var d) && d.ValueKind == JsonValueKind.Number)
                     seconds = d.GetDouble();
             }
-            // Fall back to the VAD timestamps when the event carries no duration.
+            // Fall back to the VAD timestamps, then to the audio sent for this line.
             if (seconds <= 0)
                 state.SpeechDurations.TryGetValue(itemId, out seconds);
+            if (seconds <= 0)
+                state.ItemAudioSeconds.TryGetValue(itemId, out seconds);
             UsageTracker.AddTranscription(state.Model, seconds);
         }
 
@@ -502,6 +600,7 @@ namespace LiveCaptionsTranslator.apis
                 state.CommitTimes.Remove(head);
                 state.SpeechStartMs.Remove(head);
                 state.SpeechDurations.Remove(head);
+                state.ItemAudioSeconds.Remove(head);
 
                 transcript = transcript.Trim();
                 if (transcript.Length > 0 && !HALLUCINATIONS.Contains(transcript))

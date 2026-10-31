@@ -249,10 +249,17 @@ namespace LiveCaptionsTranslator.apis
             }
             input.Add(new BaseLLMConfig.Message { role = "user", content = $"🔤 {text} 🔤" });
 
+            // Fixed translations from the speech recognition keywords (`原文=번역`).
+            string instructions = string.Format(Prompt, language);
+            var glossary = Translator.Setting.Transcription.GetGlossary();
+            if (glossary.Count > 0)
+                instructions += "\nAlways translate these terms as given:\n" +
+                                string.Join("\n", glossary.Select(g => $"{g.Source} → {g.Translation}"));
+
             var requestData = new Dictionary<string, object>
             {
                 { "model", model },
-                { "instructions", string.Format(Prompt, language) },
+                { "instructions", instructions },
                 { "input", input },
                 { "store", false },
                 { "stream", true },

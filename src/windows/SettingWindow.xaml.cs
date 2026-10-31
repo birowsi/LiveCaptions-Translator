@@ -61,6 +61,13 @@ namespace LiveCaptionsTranslator
 
             TranscriptionSourceBox.ItemsSource = TranscriptionSetting.Sources;
             TranscriptionSourceBox.SelectedItem = Translator.Setting.Transcription.Source;
+            TranscriptionModelBox.ItemsSource = TranscriptionSetting.Models;
+            TranscriptionModelBox.SelectedItem = Translator.Setting.Transcription.Model;
+            TranscriptionDelayBox.ItemsSource = TranscriptionSetting.Delays;
+            TranscriptionDelayBox.SelectedItem = Translator.Setting.Transcription.Delay;
+            // Apply a new model right away instead of waiting for the next restart.
+            TranscriptionModelBox.SelectionChanged += (sender, args) => OpenAITranscriber.Restart();
+            TranscriptionDelayBox.SelectionChanged += (sender, args) => OpenAITranscriber.Restart();
             GPTModelComboBox.ItemsSource = GPTConfig.SuggestedModels;
             GPTReasoningEffortBox.ItemsSource = ChatGPTConfig.ReasoningEfforts;
             StartingBalanceBox.Value = UsageTracker.StartingBalance;

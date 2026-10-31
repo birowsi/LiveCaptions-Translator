@@ -17,7 +17,14 @@ namespace LiveCaptionsTranslator.models
         [JsonIgnore]
         public static List<string> Sources => [SOURCE_LIVECAPTIONS, SOURCE_OPENAI];
         [JsonIgnore]
-        public static List<string> Models => ["gpt-transcribe"];
+        public static List<string> Models => [MODEL_TRANSCRIBE, MODEL_LIVE_TRANSCRIBE];
+        [JsonIgnore]
+        public static List<string> Delays => ["minimal", "low", "medium", "high"];
+
+        // Transcribes each finished line; cheapest ($0.0045/min).
+        public const string MODEL_TRANSCRIBE = "gpt-transcribe";
+        // Streams text while someone is still talking; faster but pricier ($0.017/min).
+        public const string MODEL_LIVE_TRANSCRIBE = "gpt-live-transcribe";
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -30,6 +37,7 @@ namespace LiveCaptionsTranslator.models
         private double vadThreshold = 0.5;
         private int silenceDurationMs = 500;
         private int maxTurnSeconds = 12;
+        private string delay = "low";
 
         public string Source
         {
@@ -118,16 +126,46 @@ namespace LiveCaptionsTranslator.models
             }
         }
 
+        // Latency/accuracy trade-off of gpt-live-transcribe.
+        public string Delay
+        {
+            get => delay;
+            set
+            {
+                delay = value;
+                OnPropertyChanged("Delay");
+            }
+        }
+
         [JsonIgnore]
         public bool IsOpenAI => source == SOURCE_OPENAI;
+        // Live models stream text before a line ends and need the app to decide where lines end.
+        [JsonIgnore]
+        public bool IsLiveModel => model is MODEL_LIVE_TRANSCRIBE or "gpt-realtime-whisper";
+
+        // Each keyword may carry a fixed translation: `原文=번역`.
+        private IEnumerable<(string Source, string? Translation)> ParseKeywords()
+        {
+            foreach (var entry in keywords.Split(['\n', '\r', ',', '、'],
+                         StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                var parts = entry.Replace("<", "").Replace(">", "").Split('=', 2, StringSplitOptions.TrimEntries);
+                if (parts[0].Length == 0)
+                    continue;
+                yield return (parts[0], parts.Length > 1 && parts[1].Length > 0 ? parts[1] : null);
+            }
+        }
 
         public List<string> GetKeywordList()
         {
-            return keywords
-                .Split(['\n', '\r', ',', '、'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                .Select(k => k.Replace("<", "").Replace(">", ""))
-                .Where(k => k.Length > 0)
-                .Distinct()
+            return ParseKeywords().Select(k => k.Source).Distinct().ToList();
+        }
+
+        public List<(string Source, string Translation)> GetGlossary()
+        {
+            return ParseKeywords()
+                .Where(k => k.Translation != null)
+                .Select(k => (k.Source, k.Translation!))
                 .ToList();
         }
 
