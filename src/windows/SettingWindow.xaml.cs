@@ -240,7 +240,8 @@ namespace LiveCaptionsTranslator
             ChatGPTLoadModelsButton.IsEnabled = isPlanUsageEnabled;
 
             if (isSigningIn)
-                ChatGPTStatusText.Text = "Waiting for you to finish signing in in your browser...";
+                ChatGPTStatusText.Text = "Waiting for you to finish signing in in your browser... " +
+                                         "If the browser shows an error instead, click Cancel.";
             else if (isPlanUsageEnabled)
                 ChatGPTStatusText.Text = $"Signed in as {account}.";
             else if (isSignedIn)

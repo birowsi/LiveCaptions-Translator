@@ -1199,6 +1199,11 @@
                                             Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                             Text="Translate with usage included in your ChatGPT Plus or Pro plan. No API key is required. This app has no paid plan of its own."
                                             TextWrapping="Wrap" />
+                                        <ui:TextBlock
+                                            Margin="0,8,0,0"
+                                            Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                            Text="Personal Plus and Pro plans only. OpenAI currently refuses this sign-in for Business, Enterprise and Edu workspaces (the browser says your organization hasn't enabled access for this app), and there is no admin setting to allow it. Use the GPT (API Key) engine instead."
+                                            TextWrapping="Wrap" />
                                         <StackPanel Margin="0,12,0,0" Orientation="Horizontal">
                                             <ui:Button
                                                 x:Name="ChatGPTSignInButton"
