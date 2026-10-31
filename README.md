@@ -1,6 +1,6 @@
 ﻿## Fork features
 
-This is my fork of [SakiRinn/LiveCaptions-Translator](https://github.com/SakiRinn/LiveCaptions-Translator). I mostly use it to watch Japanese streams with Korean subtitles, so the changes lean that way. Everything from the original still works, the stuff below is extra.
+This is my fork of [SakiRinn/LiveCaptions-Translator](https://github.com/SakiRinn/LiveCaptions-Translator). I mostly use it for gaming with Japanese players, reading what they say as Korean subtitles, so the changes lean that way. Everything from the original still works, the stuff below is extra.
 
 **Speech recognition without Windows LiveCaptions**
 - The app can listen to whatever your PC is playing and send it to OpenAI's transcription models instead of reading LiveCaptions. Pick `gpt-transcribe` (cheaper, a line shows up once the person finishes talking) or `gpt-live-transcribe` (text appears while they're still talking, about 4x the price).
