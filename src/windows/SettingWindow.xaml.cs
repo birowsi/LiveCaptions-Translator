@@ -76,10 +76,14 @@ namespace LiveCaptionsTranslator
             Action onUsageChanged = () => Dispatcher.BeginInvoke(new Action(UpdateUsage));
             OpenAITranscriber.StatusChanged += onStatusChanged;
             UsageTracker.Changed += onUsageChanged;
+            ApiCreditGuard.Changed += onUsageChanged;
+            ChatGPTAuth.StateChanged += onUsageChanged;
             Closed += (sender, args) =>
             {
                 OpenAITranscriber.StatusChanged -= onStatusChanged;
                 UsageTracker.Changed -= onUsageChanged;
+                ApiCreditGuard.Changed -= onUsageChanged;
+                ChatGPTAuth.StateChanged -= onUsageChanged;
             };
 
             UpdateTranscriptionStatus();
@@ -106,6 +110,12 @@ namespace LiveCaptionsTranslator
                 $"Translation: {UsageTracker.FormatUSD(usage.TranslationCost)} ({usage.Requests:N0} requests, " +
                 $"{usage.InputTokens:N0} input tokens of which {usage.CachedInputTokens:N0} cached, {usage.OutputTokens:N0} output tokens)" +
                 (usage.HasUnpricedUsage ? "\nSome usage was from a model with an unknown price and is not included." : "");
+
+            string chatgpt = ChatGPTAuth.IsPlanUsageEnabled ? "signed in" : "not signed in, Google will be used";
+            CreditRouteText.Text = ApiCreditGuard.IsApiCreditExhausted
+                ? $"API credit used up. Translating with: {ApiCreditGuard.TranslationRoute}. " +
+                  "After topping up, set the balance or reset the counter to use the API again."
+                : $"Translating with: {ApiCreditGuard.TranslationRoute}. ChatGPT fallback: {chatgpt}.";
         }
 
         private void TranscriptionSourceBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -117,7 +127,8 @@ namespace LiveCaptionsTranslator
                 transcription.Source = source;
 
             // Only switch when the running source differs from the selection.
-            bool needsSwitch = transcription.IsOpenAI ? !OpenAITranscriber.IsRunning : Translator.Window == null;
+            bool needsSwitch = !Translator.IsSwitchingSource &&
+                               (transcription.IsOpenAI ? !OpenAITranscriber.IsRunning : Translator.Window == null);
             if (needsSwitch)
                 Task.Run(Translator.ApplyCaptionSource);
             (App.Current.MainWindow as MainWindow)?.UpdateListenButton();
@@ -127,6 +138,7 @@ namespace LiveCaptionsTranslator
         private void SetBalanceButton_Click(object sender, RoutedEventArgs e)
         {
             UsageTracker.SetStartingBalance(StartingBalanceBox.Value ?? 0);
+            ApiCreditGuard.Reset();
         }
 
         private void ResetUsageButton_Click(object sender, RoutedEventArgs e)
@@ -135,7 +147,10 @@ namespace LiveCaptionsTranslator
                 "Reset the spent counter to zero? Use this after topping up your credit.",
                 "Reset Counter", System.Windows.MessageBoxButton.OKCancel, System.Windows.MessageBoxImage.Question);
             if (result == System.Windows.MessageBoxResult.OK)
+            {
                 UsageTracker.Reset(StartingBalanceBox.Value ?? UsageTracker.StartingBalance);
+                ApiCreditGuard.Reset();
+            }
         }
 
         private void InitializeChatGPT()

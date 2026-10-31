@@ -502,6 +502,20 @@
                                                 Click="ResetUsageButton_Click"
                                                 Content="Reset Counter" />
                                         </StackPanel>
+                                        <CheckBox
+                                            Margin="0,14,0,0"
+                                            Content="When the API credit runs out, keep going: translate with the ChatGPT plan (sign in under ChatGPT), then Google; listen with Windows LiveCaptions."
+                                            IsChecked="{Binding CreditFallback, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
+                                            <CheckBox.ContentTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{Binding}" TextWrapping="Wrap" />
+                                                </DataTemplate>
+                                            </CheckBox.ContentTemplate>
+                                        </CheckBox>
+                                        <ui:TextBlock
+                                            x:Name="CreditRouteText"
+                                            Margin="0,6,0,0"
+                                            TextWrapping="Wrap" />
                                         <ui:TextBlock Margin="0,12,0,0" TextWrapping="Wrap">
                                             <Run Text="Official numbers (updated with a delay): " />
                                             <Hyperlink NavigateUri="https://platform.openai.com/usage" RequestNavigate="ChatGPTManageUsage_RequestNavigate">platform.openai.com/usage</Hyperlink>

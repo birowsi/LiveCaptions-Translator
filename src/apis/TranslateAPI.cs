@@ -25,7 +25,7 @@ namespace LiveCaptionsTranslator.apis
             { "Ollama", Ollama },
             { "OpenAI", OpenAI },
             { "GPT", GPT },
-            { "ChatGPT", ChatGPT },
+            { "ChatGPT", ChatGPTWithFallback },
             { "LMStudio", LMStudio },
             { "DeepL", DeepL },
             { "OpenRouter", OpenRouter },
@@ -178,8 +178,30 @@ namespace LiveCaptionsTranslator.apis
             return await StreamResponsesAsync(accessToken, requestData, DescribeChatGPTError, trackUsage: false, token);
         }
 
+        /// <summary>
+        /// The ChatGPT engine as selected in the settings: when the plan can't translate
+        /// (usage limit, signed out...), the line is translated with Google instead.
+        /// </summary>
+        public static async Task<string> ChatGPTWithFallback(string text, CancellationToken token = default)
+        {
+            string result = await ChatGPT(text, token);
+            if (!result.StartsWith("[ERROR]"))
+            {
+                ApiCreditGuard.SetTranslationRoute(ApiCreditGuard.ROUTE_CHATGPT);
+                return result;
+            }
+            if (!ApiCreditGuard.IsEnabled)
+                return result;
+
+            ApiCreditGuard.SetTranslationRoute(ApiCreditGuard.ROUTE_GOOGLE);
+            return await Google(text, token);
+        }
+
         public static async Task<string> GPT(string text, CancellationToken token = default)
         {
+            if (ApiCreditGuard.IsEnabled && ApiCreditGuard.IsApiCreditExhausted)
+                return await TranslateWithoutApiCredit(text, token);
+
             var config = Translator.Setting["GPT"] as GPTConfig;
             var (apiKey, keyError) = ResolveOpenAIApiKey();
             if (apiKey == null)
@@ -191,7 +213,34 @@ namespace LiveCaptionsTranslator.apis
                 GPTConfig.SupportedLanguages);
             // Keep the reply short: one subtitle line. Reasoning tokens also count towards this limit.
             requestData["max_output_tokens"] = config.ReasoningEffort == "none" ? 300 : 2000;
-            return await StreamResponsesAsync(apiKey, requestData, DescribeAPIError, trackUsage: true, token);
+            string result = await StreamResponsesAsync(apiKey, requestData, DescribeAPIError, trackUsage: true, token);
+
+            // The credit ran out with this request: translate the same line another way, without a gap.
+            if (ApiCreditGuard.IsEnabled && ApiCreditGuard.IsApiCreditExhausted)
+                return await TranslateWithoutApiCredit(text, token);
+            ApiCreditGuard.SetTranslationRoute(ApiCreditGuard.ROUTE_API);
+            return result;
+        }
+
+        /// <summary>
+        /// Fallback when the API credit is used up: the ChatGPT plan if signed in, otherwise Google.
+        /// </summary>
+        private static async Task<string> TranslateWithoutApiCredit(string text, CancellationToken token)
+        {
+            var chatgptConfig = Translator.Setting["ChatGPT"] as ChatGPTConfig;
+            if (ChatGPTAuth.IsPlanUsageEnabled && !string.IsNullOrWhiteSpace(chatgptConfig?.ModelName) &&
+                DateTime.UtcNow >= chatgptPausedUntil)
+            {
+                string result = await ChatGPT(text, token);
+                if (!result.StartsWith("[ERROR]"))
+                {
+                    ApiCreditGuard.SetTranslationRoute(ApiCreditGuard.ROUTE_CHATGPT);
+                    return result;
+                }
+            }
+
+            ApiCreditGuard.SetTranslationRoute(ApiCreditGuard.ROUTE_GOOGLE);
+            return await Google(text, token);
         }
 
         /// <summary>
@@ -446,7 +495,10 @@ namespace LiveCaptionsTranslator.apis
         {
             var (code, message, _) = ParseAPIError(body);
             if (code == "insufficient_quota")
+            {
+                ApiCreditGuard.MarkApiCreditExhausted();
                 return "[ERROR] Translation Failed: OpenAI API credit is used up. Check your balance at platform.openai.com.";
+            }
             return FormatAPIError(statusCode, code, message);
         }
 

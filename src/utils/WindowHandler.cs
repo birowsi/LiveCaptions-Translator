@@ -28,6 +28,21 @@ namespace LiveCaptionsTranslator.utils
             return bound;
         }
 
+        /// <summary>
+        /// Whether enough of the window's title bar is on some monitor to grab it,
+        /// so windows on a secondary monitor keep their position.
+        /// </summary>
+        public static bool IsOnScreen(Rect bound)
+        {
+            if (bound.IsEmpty)
+                return false;
+            var virtualScreen = new Rect(
+                SystemParameters.VirtualScreenLeft, SystemParameters.VirtualScreenTop,
+                SystemParameters.VirtualScreenWidth, SystemParameters.VirtualScreenHeight);
+            var titleBar = Rect.Intersect(new Rect(bound.Left, bound.Top, Math.Max(bound.Width, 1), 30), virtualScreen);
+            return !titleBar.IsEmpty && titleBar.Width >= 100 && titleBar.Height >= 10;
+        }
+
         public static void RestoreState(Window? window, Rect bound)
         {
             if (window == null || bound.IsEmpty)

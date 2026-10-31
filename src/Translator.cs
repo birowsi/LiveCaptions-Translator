@@ -31,6 +31,9 @@ namespace LiveCaptionsTranslator
 
         public static bool LogOnlyFlag { get; set; } = false;
         private static volatile bool isSwitchingSource = false;
+        private static volatile bool isPrewarmingLiveCaptions = false;
+
+        public static bool IsSwitchingSource => isSwitchingSource;
         public static bool FirstUseFlag { get; set; } = false;
 
         public static event Action? TranslationLogged;
@@ -97,6 +100,46 @@ namespace LiveCaptionsTranslator
                 if (Window == null)
                     Window = StartLiveCaptions();
             }
+        }
+
+        /// <summary>
+        /// Starts LiveCaptions hidden in the background while OpenAI speech recognition is still running,
+        /// so that switching to it later is instant.
+        /// </summary>
+        public static void PrewarmLiveCaptions()
+        {
+            if (Window != null || isPrewarmingLiveCaptions || isSwitchingSource)
+                return;
+            isPrewarmingLiveCaptions = true;
+            Task.Run(() =>
+            {
+                try
+                {
+                    var liveCaptions = StartLiveCaptions();
+                    if (Window == null)
+                        Window = liveCaptions;
+                }
+                catch (Exception) { }
+                finally
+                {
+                    isPrewarmingLiveCaptions = false;
+                }
+            });
+        }
+
+        /// <summary>
+        /// The OpenAI API credit is used up: continue with Windows LiveCaptions.
+        /// </summary>
+        public static void SwitchToLiveCaptionsForCredit()
+        {
+            if (!Setting.Transcription.IsOpenAI)
+                return;
+            // Wait for a prewarm in progress instead of launching LiveCaptions twice.
+            while (isPrewarmingLiveCaptions)
+                Thread.Sleep(100);
+            Setting.Transcription.Source = TranscriptionSetting.SOURCE_LIVECAPTIONS;
+            ApplyCaptionSource();
+            ShowNotice("[WARNING] OpenAI API credit is used up. Switched to Windows LiveCaptions.");
         }
 
         /// <summary>

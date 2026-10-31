@@ -34,8 +34,7 @@ namespace LiveCaptionsTranslator
             double screenHeight = SystemParameters.PrimaryScreenHeight;
 
             var windowState = WindowHandler.LoadState(this, Translator.Setting);
-            if (windowState.Left <= 0 || windowState.Left >= screenWidth ||
-                windowState.Top <= 0 || windowState.Top >= screenHeight)
+            if (!WindowHandler.IsOnScreen(windowState))
             {
                 WindowHandler.RestoreState(this, new Rect(
                     (screenWidth - 775) / 2, screenHeight * 3 / 4 - 167, 775, 167));
@@ -48,6 +47,7 @@ namespace LiveCaptionsTranslator
 
             OpenAITranscriber.StatusChanged += () => Dispatcher.BeginInvoke(new Action(UpdateListenButton));
             UsageTracker.Changed += () => Dispatcher.BeginInvoke(new Action(UpdateUsageText));
+            ApiCreditGuard.Changed += () => Dispatcher.BeginInvoke(new Action(UpdateUsageText));
             UpdateListenButton();
             UpdateUsageText();
         }
@@ -83,6 +83,9 @@ namespace LiveCaptionsTranslator
             UsageText.Text = usage.StartingBalance > 0
                 ? $"{UsageTracker.FormatUSD(usage.StartingBalance - usage.TotalCost)} left"
                 : UsageTracker.FormatUSD(usage.TotalCost);
+            // Show which fallback translates once the API credit is used up.
+            if (ApiCreditGuard.TranslationRoute != ApiCreditGuard.ROUTE_API)
+                UsageText.Text += $" · {ApiCreditGuard.TranslationRoute}";
             UsageText.ToolTip =
                 $"Spent {UsageTracker.FormatUSD(usage.TotalCost)} since {usage.Since:yyyy-MM-dd} " +
                 $"(this session {UsageTracker.FormatUSD(UsageTracker.SessionCost)})\n" +
@@ -115,8 +118,7 @@ namespace LiveCaptionsTranslator
                 double screenHeight = SystemParameters.PrimaryScreenHeight;
 
                 var windowState = WindowHandler.LoadState(OverlayWindow, Translator.Setting);
-                if (windowState.Left <= 0 || windowState.Left >= screenWidth ||
-                    windowState.Top <= 0 || windowState.Top >= screenHeight)
+                if (!WindowHandler.IsOnScreen(windowState))
                 {
                     WindowHandler.RestoreState(OverlayWindow, new Rect(
                         (screenWidth - 650) / 2, screenHeight * 5 / 6 - 135, 650, 135));
@@ -171,7 +173,7 @@ namespace LiveCaptionsTranslator
             Translator.Setting.MainWindow.CaptionLogEnabled = !Translator.Setting.MainWindow.CaptionLogEnabled;
             ShowLogCard(Translator.Setting.MainWindow.CaptionLogEnabled);
             Translator.Caption.OnPropertyChanged("DisplayPreviousTranslations");
-            CaptionPage.Instance?.AutoHeight();
+            CaptionPage.Instance?.AutoHeight(fitToContent: true);
         }
 
         private void MainWindow_LocationChanged(object sender, EventArgs e)

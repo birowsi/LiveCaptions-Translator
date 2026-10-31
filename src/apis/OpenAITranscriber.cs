@@ -128,9 +128,25 @@ namespace LiveCaptionsTranslator.apis
                         continue;
                     }
 
+                    if (ApiCreditGuard.IsEnabled && ApiCreditGuard.IsApiCreditExhausted)
+                    {
+                        SwitchToLiveCaptionsForCredit();
+                        break;
+                    }
+
                     var result = await RunSessionAsync(apiKey, audioQueue, token);
                     if (token.IsCancellationRequested)
                         break;
+
+                    if (result.IsCreditExhausted)
+                    {
+                        ApiCreditGuard.MarkApiCreditExhausted();
+                        if (ApiCreditGuard.IsEnabled)
+                        {
+                            SwitchToLiveCaptionsForCredit();
+                            break;
+                        }
+                    }
 
                     if (result.IsFatal)
                     {
@@ -166,6 +182,12 @@ namespace LiveCaptionsTranslator.apis
             return capture;
         }
 
+        private static void SwitchToLiveCaptionsForCredit()
+        {
+            SetStatus("OpenAI API credit is used up: switched to Windows LiveCaptions.");
+            Task.Run(Translator.SwitchToLiveCaptionsForCredit);
+        }
+
         private static void StopCapture(LoopbackAudioCapture? current)
         {
             if (current == null)
@@ -178,7 +200,7 @@ namespace LiveCaptionsTranslator.apis
             catch (Exception) { }
         }
 
-        private record SessionResult(bool IsFatal, bool WasConnected, string Message);
+        private record SessionResult(bool IsFatal, bool WasConnected, string Message, bool IsCreditExhausted = false);
 
         private class SessionState
         {
@@ -204,6 +226,7 @@ namespace LiveCaptionsTranslator.apis
             public readonly Dictionary<string, double> SpeechStartMs = new();
             public readonly Dictionary<string, double> SpeechDurations = new();
             public string? FatalError = null;
+            public bool IsCreditExhausted = false;
         }
 
         private static async Task<SessionResult> RunSessionAsync(string apiKey, ConcurrentQueue<short[]> audioQueue,
@@ -266,6 +289,8 @@ namespace LiveCaptionsTranslator.apis
                 catch (Exception) { }
             }
 
+            if (state.IsCreditExhausted)
+                return new SessionResult(true, true, state.FatalError ?? "OpenAI API credit is used up.", true);
             if (state.FatalError != null)
                 return new SessionResult(true, true, state.FatalError);
             return new SessionResult(false, true, closeReason);
@@ -364,6 +389,19 @@ namespace LiveCaptionsTranslator.apis
                         state.SentSecondsSinceCommit += (double)pending.Count / LoopbackAudioCapture.SAMPLE_RATE;
                 }
                 pending.Clear();
+
+                if (ApiCreditGuard.IsEnabled)
+                {
+                    // Get LiveCaptions ready while there is still credit, then hand over when it runs out.
+                    if (ApiCreditGuard.IsApiCreditLow)
+                        Translator.PrewarmLiveCaptions();
+                    if (ApiCreditGuard.IsApiCreditExhausted)
+                    {
+                        state.IsCreditExhausted = true;
+                        ws.Abort();
+                        return;
+                    }
+                }
 
                 if (state.IsLive)
                     await CommitLiveLineIfEndedAsync(ws, state, isVoice, now, token);
@@ -567,6 +605,7 @@ namespace LiveCaptionsTranslator.apis
                     state.FatalError = "The OpenAI API key was rejected.";
                     return;
                 case "insufficient_quota":
+                    state.IsCreditExhausted = true;
                     state.FatalError = "OpenAI API credit is used up. Check your balance at platform.openai.com.";
                     return;
             }

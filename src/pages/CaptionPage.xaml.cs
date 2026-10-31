@@ -99,7 +99,8 @@ namespace LiveCaptionsTranslator
             }
         }
 
-        public void AutoHeight()
+        // `fitToContent`: also shrink to fit (when toggling log cards); otherwise only grow, keeping the saved size.
+        public void AutoHeight(bool fitToContent = false)
         {
             if (Translator.Setting.MainWindow.CaptionLogEnabled)
                 (App.Current.MainWindow as MainWindow).AutoHeightAdjust(
@@ -111,7 +112,8 @@ namespace LiveCaptionsTranslator
                 int historyHeight = (int)(Translator.Setting.MainWindow.TranslatedFontSize * 1.4 *
                                           Translator.Setting.DisplaySentences);
                 int height = (int)App.Current.MainWindow.MinHeight + historyHeight;
-                (App.Current.MainWindow as MainWindow).AutoHeightAdjust(minHeight: height, maxHeight: height);
+                (App.Current.MainWindow as MainWindow).AutoHeightAdjust(
+                    minHeight: height, maxHeight: fitToContent ? height : -1);
             }
         }
     }

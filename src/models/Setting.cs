@@ -20,6 +20,7 @@ namespace LiveCaptionsTranslator.models
         private int numContexts = 2;
         private int displaySentences = 1;
         private bool contextAware = false;
+        private bool creditFallback = true;
 
         private string apiName;
         private string targetLanguage;
@@ -70,6 +71,17 @@ namespace LiveCaptionsTranslator.models
             {
                 contextAware = value;
                 OnPropertyChanged("ContextAware");
+            }
+        }
+
+        // When the OpenAI API credit runs out, keep going with ChatGPT plan / Google and Windows LiveCaptions.
+        public bool CreditFallback
+        {
+            get => creditFallback;
+            set
+            {
+                creditFallback = value;
+                OnPropertyChanged("CreditFallback");
             }
         }
 
