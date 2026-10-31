@@ -26,6 +26,8 @@ namespace LiveCaptionsTranslator.models
         private string prompt;
         private string? ignoredUpdateVersion;
 
+        private TranscriptionSetting transcription;
+
         private MainWindowState mainWindowState;
         private OverlayWindowState overlayWindowState;
         private Dictionary<string, string> windowBounds;
@@ -108,6 +110,16 @@ namespace LiveCaptionsTranslator.models
             }
         }
 
+        public TranscriptionSetting Transcription
+        {
+            get => transcription;
+            set
+            {
+                transcription = value;
+                OnPropertyChanged("Transcription");
+            }
+        }
+
         public MainWindowState MainWindow
         {
             get => mainWindowState;
@@ -173,6 +185,7 @@ namespace LiveCaptionsTranslator.models
                      "You can only provide the translated sentence; Any explanation or other text is not permitted. " +
                      "REMOVE all 🔤 when you output.";
 
+            transcription = new TranscriptionSetting();
             mainWindowState = new MainWindowState();
             overlayWindowState = new OverlayWindowState();
 
@@ -196,6 +209,8 @@ namespace LiveCaptionsTranslator.models
                 { "Google2", [new TranslateAPIConfig()] },
                 { "Ollama", [new OllamaConfig()] },
                 { "OpenAI", [new OpenAIConfig()] },
+                { "GPT", [new GPTConfig()] },
+                { "ChatGPT", [new ChatGPTConfig()] },
                 { "LMStudio", [new LMStudioConfig()] },
                 { "OpenRouter", [new OpenRouterConfig()] },
                 { "DeepL", [new DeepLConfig()] },
@@ -210,6 +225,8 @@ namespace LiveCaptionsTranslator.models
                 { "Google2", 0 },
                 { "Ollama", 0 },
                 { "OpenAI", 0 },
+                { "GPT", 0 },
+                { "ChatGPT", 0 },
                 { "LMStudio", 0 },
                 { "OpenRouter", 0 },
                 { "DeepL", 0 },

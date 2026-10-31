@@ -1,5 +1,6 @@
 ﻿using System.Windows;
 
+using LiveCaptionsTranslator.apis;
 using LiveCaptionsTranslator.utils;
 
 namespace LiveCaptionsTranslator
@@ -14,10 +15,14 @@ namespace LiveCaptionsTranslator
             Task.Run(() => Translator.SyncLoop());
             Task.Run(() => Translator.TranslateLoop());
             Task.Run(() => Translator.DisplayLoop());
+
+            if (Translator.Setting?.Transcription.IsOpenAI == true)
+                OpenAITranscriber.Start();
         }
 
         private static void OnProcessExit(object sender, EventArgs e)
         {
+            OpenAITranscriber.Stop();
             if (Translator.Window != null)
             {
                 LiveCaptionsHandler.RestoreLiveCaptions(Translator.Window);

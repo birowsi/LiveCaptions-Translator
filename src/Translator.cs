@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.IO;
 using System.Text;
 using System.Windows.Automation;
@@ -15,7 +16,7 @@ namespace LiveCaptionsTranslator
         private static Caption? caption = null;
         private static Setting? setting = null;
 
-        private static readonly Queue<string> pendingTextQueue = new();
+        private static readonly ConcurrentQueue<string> pendingTextQueue = new();
         private static readonly TranslationTaskQueue translationTaskQueue = new();
 
         public static AutomationElement? Window
@@ -27,21 +28,99 @@ namespace LiveCaptionsTranslator
         public static Setting? Setting => setting;
 
         public static bool LogOnlyFlag { get; set; } = false;
+        private static volatile bool isSwitchingSource = false;
         public static bool FirstUseFlag { get; set; } = false;
 
         public static event Action? TranslationLogged;
 
         static Translator()
         {
-            window = LiveCaptionsHandler.LaunchLiveCaptions();
-            LiveCaptionsHandler.FixLiveCaptions(Window);
-            LiveCaptionsHandler.HideLiveCaptions(Window);
-
             if (!File.Exists(Path.Combine(Directory.GetCurrentDirectory(), models.Setting.FILENAME)))
                 FirstUseFlag = true;
 
             caption = Caption.GetInstance();
             setting = Setting.Load();
+
+            // LiveCaptions is only needed when it is the caption source.
+            if (!setting.Transcription.IsOpenAI)
+                window = StartLiveCaptions();
+        }
+
+        private static AutomationElement StartLiveCaptions()
+        {
+            var liveCaptions = LiveCaptionsHandler.LaunchLiveCaptions();
+            LiveCaptionsHandler.FixLiveCaptions(liveCaptions);
+            LiveCaptionsHandler.HideLiveCaptions(liveCaptions);
+            return liveCaptions;
+        }
+
+        /// <summary>
+        /// Switches between Windows LiveCaptions and OpenAI speech recognition
+        /// according to `Setting.Transcription.Source`.
+        /// </summary>
+        public static void ApplyCaptionSource()
+        {
+            isSwitchingSource = true;
+            try
+            {
+                ApplyCaptionSourceCore();
+            }
+            finally
+            {
+                isSwitchingSource = false;
+            }
+        }
+
+        private static void ApplyCaptionSourceCore()
+        {
+            ClearContexts();
+            if (Setting.Transcription.IsOpenAI)
+            {
+                var liveCaptions = Window;
+                Window = null;
+                if (liveCaptions != null)
+                {
+                    try
+                    {
+                        LiveCaptionsHandler.RestoreLiveCaptions(liveCaptions);
+                        LiveCaptionsHandler.KillLiveCaptions(liveCaptions);
+                    }
+                    catch (Exception) { }
+                }
+                OpenAITranscriber.Start();
+            }
+            else
+            {
+                OpenAITranscriber.Stop();
+                if (Window == null)
+                    Window = StartLiveCaptions();
+            }
+        }
+
+        /// <summary>
+        /// A finished sentence from OpenAI speech recognition: display it and queue it for translation.
+        /// </summary>
+        public static void SubmitTranscript(string text)
+        {
+            Caption.OriginalCaption = text;
+            Caption.DisplayOriginalCaption = TextUtil.ShortenDisplaySentence(text, TextUtil.VERYLONG_THRESHOLD);
+            Caption.OverlayOriginalCaption = text;
+            pendingTextQueue.Enqueue(text);
+        }
+
+        /// <summary>
+        /// Text of a sentence that is still being recognized. Displayed only, not translated.
+        /// </summary>
+        public static void ShowPartialTranscript(string text)
+        {
+            Caption.DisplayOriginalCaption = TextUtil.ShortenDisplaySentence(text, TextUtil.VERYLONG_THRESHOLD);
+            Caption.OverlayOriginalCaption = text;
+        }
+
+        public static void ShowNotice(string notice)
+        {
+            Caption.DisplayTranslatedCaption = notice;
+            Caption.OverlayCurrentTranslation = notice;
         }
 
         public static void SyncLoop()
@@ -51,9 +130,9 @@ namespace LiveCaptionsTranslator
 
             while (true)
             {
-                if (Window == null)
+                if (Window == null || Setting.Transcription.IsOpenAI)
                 {
-                    Thread.Sleep(2000);
+                    Thread.Sleep(Window == null ? 2000 : 100);
                     continue;
                 }
 
@@ -162,7 +241,7 @@ namespace LiveCaptionsTranslator
             while (true)
             {
                 // Check LiveCaptions.exe still alive
-                if (Window == null)
+                if (Window == null && !Setting.Transcription.IsOpenAI && !isSwitchingSource)
                 {
                     Caption.DisplayTranslatedCaption = "[WARNING] LiveCaptions was unexpectedly closed, restarting...";
                     Window = LiveCaptionsHandler.LaunchLiveCaptions();
@@ -170,9 +249,8 @@ namespace LiveCaptionsTranslator
                 }
 
                 // Translate
-                if (pendingTextQueue.Count > 0)
+                if (pendingTextQueue.TryDequeue(out var originalSnapshot))
                 {
-                    var originalSnapshot = pendingTextQueue.Dequeue();
 
                     if (LogOnlyFlag)
                     {

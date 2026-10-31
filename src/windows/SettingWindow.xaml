@@ -56,6 +56,36 @@
                         </ui:Button>
 
                         <ui:Button
+                            x:Name="SpeechRecognitionButton"
+                            Margin="10,5,5,0"
+                            Padding="10"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left"
+                            Background="Transparent"
+                            Click="NavigationButton_Click"
+                            Tag="SpeechRecognition">
+                            <StackPanel Orientation="Horizontal">
+                                <ui:SymbolIcon Margin="0,0,10,0" Symbol="Mic16" />
+                                <ui:TextBlock VerticalAlignment="Center" Text="Speech Recognition" />
+                            </StackPanel>
+                        </ui:Button>
+
+                        <ui:Button
+                            x:Name="UsageButton"
+                            Margin="10,5,5,0"
+                            Padding="10"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left"
+                            Background="Transparent"
+                            Click="NavigationButton_Click"
+                            Tag="Usage">
+                            <StackPanel Orientation="Horizontal">
+                                <ui:SymbolIcon Margin="0,0,10,0" Symbol="Money16" />
+                                <ui:TextBlock VerticalAlignment="Center" Text="Credit Usage" />
+                            </StackPanel>
+                        </ui:Button>
+
+                        <ui:Button
                             x:Name="OllamaButton"
                             Margin="10,5,5,0"
                             Padding="10"
@@ -94,6 +124,34 @@
                             Tag="OpenAI">
                             <StackPanel Orientation="Horizontal">
                                 <ui:TextBlock VerticalAlignment="Center" Text="OpenAI" />
+                            </StackPanel>
+                        </ui:Button>
+
+                        <ui:Button
+                            x:Name="GPTButton"
+                            Margin="10,5,5,0"
+                            Padding="10"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left"
+                            Background="Transparent"
+                            Click="NavigationButton_Click"
+                            Tag="GPT">
+                            <StackPanel Orientation="Horizontal">
+                                <ui:TextBlock VerticalAlignment="Center" Text="GPT (API Key)" />
+                            </StackPanel>
+                        </ui:Button>
+
+                        <ui:Button
+                            x:Name="ChatGPTButton"
+                            Margin="10,5,5,0"
+                            Padding="10"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left"
+                            Background="Transparent"
+                            Click="NavigationButton_Click"
+                            Tag="ChatGPT">
+                            <StackPanel Orientation="Horizontal">
+                                <ui:TextBlock VerticalAlignment="Center" Text="ChatGPT" />
                             </StackPanel>
                         </ui:Button>
 
@@ -220,6 +278,204 @@
                                             ClearButtonEnabled="False"
                                             Text="{Binding Prompt, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                             TextWrapping="Wrap" />
+                                    </StackPanel>
+                                </ui:Card>
+                            </StackPanel>
+
+                            <StackPanel x:Name="SpeechRecognitionSection" Margin="20">
+                                <ui:TextBlock
+                                    Margin="10"
+                                    FontSize="20"
+                                    FontWeight="Medium"
+                                    Text="Speech Recognition" />
+                                <ui:Card Padding="15">
+                                    <StackPanel Margin="15,0,15,0">
+                                        <ui:TextBlock
+                                            Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                            Text="Where the source captions come from. OpenAI listens to your PC audio and transcribes it with gpt-transcribe (0.0045 USD per minute of audio). Long silence is not sent."
+                                            TextWrapping="Wrap" />
+                                        <Grid Margin="0,12,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" Orientation="Vertical">
+                                                <ui:TextBlock Margin="2.5,0,0,5" Text="Source" />
+                                                <ComboBox
+                                                    x:Name="TranscriptionSourceBox"
+                                                    Width="150"
+                                                    Height="30"
+                                                    Padding="10,4,10,7"
+                                                    FontSize="13.3"
+                                                    SelectedItem="{Binding Transcription.Source, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                    SelectionChanged="TranscriptionSourceBox_SelectionChanged" />
+                                            </StackPanel>
+                                            <StackPanel
+                                                Grid.Column="1"
+                                                Margin="15,0,0,0"
+                                                Orientation="Vertical">
+                                                <ui:TextBlock Margin="2.5,0,0,5" Text="Language" />
+                                                <ui:TextBox
+                                                    Width="80"
+                                                    Height="30"
+                                                    Padding="10,4,10,7"
+                                                    FontSize="13.3"
+                                                    PlaceholderText="ja"
+                                                    Text="{Binding Transcription.Language, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                            </StackPanel>
+                                            <StackPanel
+                                                Grid.Column="2"
+                                                Margin="15,0,0,0"
+                                                Orientation="Vertical">
+                                                <ui:TextBlock Margin="2.5,0,0,5" Text="OpenAI API Key (empty: use the GPT engine key)" />
+                                                <ui:PasswordBox
+                                                    Width="260"
+                                                    Height="30"
+                                                    Padding="10,4,10,7"
+                                                    FontSize="13.3"
+                                                    Password="{Binding Transcription.ApiKey, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                            </StackPanel>
+                                        </Grid>
+
+                                        <ui:TextBlock Margin="2.5,12,0,5" Text="Keywords (names and terms, one per line)" />
+                                        <ui:TextBox
+                                            Height="70"
+                                            AcceptsReturn="True"
+                                            ClearButtonEnabled="False"
+                                            FontSize="13.3"
+                                            PlaceholderText="e.g. character names, place names"
+                                            Text="{Binding Transcription.Keywords, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
+                                            TextWrapping="Wrap"
+                                            VerticalScrollBarVisibility="Auto" />
+                                        <ui:TextBlock Margin="2.5,10,0,5" Text="Context (what you are listening to)" />
+                                        <ui:TextBox
+                                            ClearButtonEnabled="False"
+                                            FontSize="13.3"
+                                            PlaceholderText="e.g. A Japanese anime episode about a high school band."
+                                            Text="{Binding Transcription.Prompt, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
+                                            TextWrapping="Wrap" />
+
+                                        <Grid Margin="0,12,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel
+                                                Grid.Column="0"
+                                                Margin="0,0,0,0"
+                                                Orientation="Vertical">
+                                                <ui:TextBlock Margin="2.5,0,0,5" Text="Voice Threshold (0-1)" />
+                                                <ui:NumberBox
+                                                    Width="130"
+                                                    Height="30"
+                                                    Padding="10,4,10,7"
+                                                    ClearButtonEnabled="False"
+                                                    FontSize="13.3"
+                                                    Maximum="1"
+                                                    Minimum="0"
+                                                    SmallChange="0.05"
+                                                    Value="{Binding Transcription.VadThreshold, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                            </StackPanel>
+                                            <StackPanel
+                                                Grid.Column="1"
+                                                Margin="15,0,0,0"
+                                                Orientation="Vertical">
+                                                <ui:TextBlock Margin="2.5,0,0,5" Text="Pause to End Line (ms)" />
+                                                <ui:NumberBox
+                                                    Width="130"
+                                                    Height="30"
+                                                    Padding="10,4,10,7"
+                                                    ClearButtonEnabled="False"
+                                                    FontSize="13.3"
+                                                    Maximum="3000"
+                                                    Minimum="200"
+                                                    SmallChange="100"
+                                                    Value="{Binding Transcription.SilenceDurationMs, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                            </StackPanel>
+                                            <StackPanel
+                                                Grid.Column="2"
+                                                Margin="15,0,0,0"
+                                                Orientation="Vertical">
+                                                <ui:TextBlock Margin="2.5,0,0,5" Text="Max Line Length (s)" />
+                                                <ui:NumberBox
+                                                    Width="130"
+                                                    Height="30"
+                                                    Padding="10,4,10,7"
+                                                    ClearButtonEnabled="False"
+                                                    FontSize="13.3"
+                                                    Maximum="60"
+                                                    Minimum="0"
+                                                    SmallChange="1"
+                                                    Value="{Binding Transcription.MaxTurnSeconds, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                            </StackPanel>
+                                        </Grid>
+                                        <ui:TextBlock
+                                            Margin="2.5,8,0,0"
+                                            Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                            Text="Language, keywords, context and voice settings apply when listening restarts (toggle the microphone button on the main window)."
+                                            TextWrapping="Wrap" />
+                                        <ui:TextBlock
+                                            x:Name="TranscriptionStatusText"
+                                            Margin="2.5,8,0,0"
+                                            FontWeight="SemiBold"
+                                            TextWrapping="Wrap" />
+                                    </StackPanel>
+                                </ui:Card>
+                            </StackPanel>
+
+                            <StackPanel x:Name="UsageSection" Margin="20">
+                                <ui:TextBlock
+                                    Margin="10"
+                                    FontSize="20"
+                                    FontWeight="Medium"
+                                    Text="Credit Usage" />
+                                <ui:Card Padding="15">
+                                    <StackPanel Margin="15,0,15,0">
+                                        <ui:TextBlock
+                                            Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                            Text="Calculated from the usage OpenAI reports for every request (translation tokens, transcribed audio duration) times the published prices. Covers the GPT engine and OpenAI speech recognition."
+                                            TextWrapping="Wrap" />
+                                        <ui:TextBlock
+                                            x:Name="UsageSummaryText"
+                                            Margin="0,12,0,0"
+                                            FontSize="16"
+                                            FontWeight="SemiBold"
+                                            TextWrapping="Wrap" />
+                                        <ui:TextBlock
+                                            x:Name="UsageDetailText"
+                                            Margin="0,6,0,0"
+                                            TextWrapping="Wrap" />
+                                        <StackPanel Margin="0,12,0,0" Orientation="Horizontal">
+                                            <StackPanel Orientation="Vertical">
+                                                <ui:TextBlock Margin="2.5,0,0,5" Text="Starting Balance (USD)" />
+                                                <ui:NumberBox
+                                                    x:Name="StartingBalanceBox"
+                                                    Width="130"
+                                                    Height="30"
+                                                    Padding="10,4,10,7"
+                                                    ClearButtonEnabled="False"
+                                                    FontSize="13.3"
+                                                    Maximum="10000"
+                                                    Minimum="0"
+                                                    SmallChange="1" />
+                                            </StackPanel>
+                                            <ui:Button
+                                                Margin="10,0,0,0"
+                                                VerticalAlignment="Bottom"
+                                                Click="SetBalanceButton_Click"
+                                                Content="Set" />
+                                            <ui:Button
+                                                Margin="10,0,0,0"
+                                                VerticalAlignment="Bottom"
+                                                Click="ResetUsageButton_Click"
+                                                Content="Reset Counter" />
+                                        </StackPanel>
+                                        <ui:TextBlock Margin="0,12,0,0" TextWrapping="Wrap">
+                                            <Run Text="Official numbers (updated with a delay): " />
+                                            <Hyperlink NavigateUri="https://platform.openai.com/usage" RequestNavigate="ChatGPTManageUsage_RequestNavigate">platform.openai.com/usage</Hyperlink>
+                                        </ui:TextBlock>
                                     </StackPanel>
                                 </ui:Card>
                             </StackPanel>
@@ -652,6 +908,173 @@
                                                     Text="{Binding [OpenAI].ApiKey, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                                             </StackPanel>
                                         </Grid>
+                                    </StackPanel>
+                                </ui:Card>
+                            </StackPanel>
+
+                            <StackPanel x:Name="GPTSection" Margin="20">
+                                <ui:TextBlock
+                                    Margin="10"
+                                    FontSize="20"
+                                    FontWeight="Medium"
+                                    Text="GPT (API Key)" />
+                                <ui:Card Padding="15">
+                                    <StackPanel Margin="15,0,15,0">
+                                        <ui:TextBlock
+                                            Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                            Text="OpenAI Responses API with your API key. Cheapest: gpt-6-luna with reasoning effort none."
+                                            TextWrapping="Wrap" />
+                                        <Grid Margin="0,12,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" Orientation="Vertical">
+                                                <ui:TextBlock Margin="2.5,0,0,5" Text="API Key" />
+                                                <ui:PasswordBox
+                                                    Width="260"
+                                                    Height="30"
+                                                    Padding="10,4,10,7"
+                                                    FontSize="13.3"
+                                                    Password="{Binding [GPT].ApiKey, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                            </StackPanel>
+                                            <StackPanel
+                                                Grid.Column="1"
+                                                Margin="15,0,0,0"
+                                                Orientation="Vertical">
+                                                <ui:TextBlock Margin="2.5,0,0,5" Text="Model" />
+                                                <ComboBox
+                                                    x:Name="GPTModelComboBox"
+                                                    Width="170"
+                                                    Height="30"
+                                                    Padding="10,4,10,7"
+                                                    FontSize="13.3"
+                                                    IsEditable="True"
+                                                    Text="{Binding [GPT].ModelName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                            </StackPanel>
+                                            <StackPanel
+                                                Grid.Column="2"
+                                                Margin="15,0,0,0"
+                                                Orientation="Vertical">
+                                                <ui:TextBlock Margin="2.5,0,0,5" Text="Reasoning Effort" />
+                                                <ComboBox
+                                                    x:Name="GPTReasoningEffortBox"
+                                                    Width="130"
+                                                    Height="30"
+                                                    Padding="10,4,10,7"
+                                                    FontSize="13.3"
+                                                    SelectedItem="{Binding [GPT].ReasoningEffort, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </StackPanel>
+                                </ui:Card>
+                            </StackPanel>
+
+                            <StackPanel x:Name="ChatGPTSection" Margin="20">
+                                <ui:TextBlock
+                                    Margin="10"
+                                    FontSize="20"
+                                    FontWeight="Medium"
+                                    Text="ChatGPT" />
+
+                                <ui:Card Padding="15">
+                                    <StackPanel Margin="15,0,15,0">
+                                        <ui:TextBlock FontWeight="Bold" Text="Use your ChatGPT plan" />
+                                        <ui:TextBlock
+                                            Margin="0,5,0,0"
+                                            Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                            Text="Translate with usage included in your ChatGPT Plus or Pro plan. No API key is required. This app has no paid plan of its own."
+                                            TextWrapping="Wrap" />
+                                        <StackPanel Margin="0,12,0,0" Orientation="Horizontal">
+                                            <ui:Button
+                                                x:Name="ChatGPTSignInButton"
+                                                Padding="14,6,14,6"
+                                                Appearance="Dark"
+                                                Click="ChatGPTSignInButton_Click"
+                                                Content="Continue with ChatGPT" />
+                                            <ui:Button
+                                                x:Name="ChatGPTCancelButton"
+                                                Margin="10,0,0,0"
+                                                Click="ChatGPTCancelButton_Click"
+                                                Content="Cancel"
+                                                Visibility="Collapsed" />
+                                            <ui:Button
+                                                x:Name="ChatGPTSignOutButton"
+                                                Margin="10,0,0,0"
+                                                Click="ChatGPTSignOutButton_Click"
+                                                Content="Sign out"
+                                                Visibility="Collapsed" />
+                                            <ui:Button
+                                                x:Name="ChatGPTSwitchAccountButton"
+                                                Margin="10,0,0,0"
+                                                Appearance="Transparent"
+                                                Click="ChatGPTSwitchAccountButton_Click"
+                                                Content="Use a different account"
+                                                Visibility="Collapsed" />
+                                        </StackPanel>
+                                        <ui:TextBlock
+                                            x:Name="ChatGPTStatusText"
+                                            Margin="0,10,0,0"
+                                            Text="Not signed in."
+                                            TextWrapping="Wrap" />
+
+                                        <Separator Margin="0,12,0,10" />
+
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" Orientation="Vertical">
+                                                <ui:TextBlock Margin="2.5,0,0,5" Text="Model" />
+                                                <StackPanel Orientation="Horizontal">
+                                                    <ComboBox
+                                                        x:Name="ChatGPTModelComboBox"
+                                                        Width="250"
+                                                        Height="30"
+                                                        Padding="10,4,10,7"
+                                                        FontSize="13.3"
+                                                        IsEditable="True"
+                                                        SelectionChanged="ChatGPTModelComboBox_SelectionChanged"
+                                                        Text="{Binding [ChatGPT].ModelName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                        TextSearch.TextPath="Id">
+                                                        <ComboBox.ItemTemplate>
+                                                            <DataTemplate>
+                                                                <TextBlock>
+                                                                    <Run Text="{Binding DisplayName, Mode=OneWay}" />
+                                                                    <Run Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="{Binding Id, Mode=OneWay, StringFormat=({0})}" />
+                                                                </TextBlock>
+                                                            </DataTemplate>
+                                                        </ComboBox.ItemTemplate>
+                                                    </ComboBox>
+                                                    <ui:Button
+                                                        x:Name="ChatGPTLoadModelsButton"
+                                                        Margin="10,0,0,0"
+                                                        Padding="8,4,8,4"
+                                                        Click="ChatGPTLoadModelsButton_Click"
+                                                        Content="Load Models" />
+                                                </StackPanel>
+                                            </StackPanel>
+                                            <StackPanel
+                                                Grid.Column="1"
+                                                Margin="15,0,0,0"
+                                                Orientation="Vertical">
+                                                <ui:TextBlock Margin="2.5,0,0,5" Text="Reasoning Effort" />
+                                                <ComboBox
+                                                    x:Name="ChatGPTReasoningEffortBox"
+                                                    Width="130"
+                                                    Height="30"
+                                                    Padding="10,4,10,7"
+                                                    FontSize="13.3"
+                                                    SelectedItem="{Binding [ChatGPT].ReasoningEffort, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                            </StackPanel>
+                                        </Grid>
+
+                                        <ui:TextBlock Margin="0,12,0,0" TextWrapping="Wrap">
+                                            <Run x:Name="ChatGPTPlanUsageText" Text="" />
+                                            <Hyperlink NavigateUri="https://chatgpt.com/settings/usage" RequestNavigate="ChatGPTManageUsage_RequestNavigate">Manage usage</Hyperlink>
+                                        </ui:TextBlock>
                                     </StackPanel>
                                 </ui:Card>
                             </StackPanel>

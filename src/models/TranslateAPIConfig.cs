@@ -161,6 +161,83 @@ namespace LiveCaptionsTranslator.models
         }
     }
 
+    public class ChatGPTConfig : TranslateAPIConfig
+    {
+        /*
+         * Uses the signed-in user's ChatGPT plan through the Responses API (see `ChatGPTAuth`).
+         * `temperature` is not supported on this route, so this config does not inherit `BaseLLMConfig`.
+         */
+        public const string DEFAULT_REASONING_EFFORT = "default";
+
+        [JsonIgnore]
+        public static List<string> ReasoningEfforts =>
+            [DEFAULT_REASONING_EFFORT, "none", "minimal", "low", "medium", "high"];
+
+        private string modelName = "";
+        private string reasoningEffort = DEFAULT_REASONING_EFFORT;
+
+        public string ModelName
+        {
+            get => modelName;
+            set
+            {
+                modelName = value;
+                OnPropertyChanged("ModelName");
+            }
+        }
+        public string ReasoningEffort
+        {
+            get => reasoningEffort;
+            set
+            {
+                reasoningEffort = value;
+                OnPropertyChanged("ReasoningEffort");
+            }
+        }
+    }
+
+    public class GPTConfig : TranslateAPIConfig
+    {
+        /*
+         * OpenAI Responses API with an API key (pay-as-you-go credit).
+         * The defaults favor the lowest cost: a small model without reasoning.
+         */
+        [JsonIgnore]
+        public static List<string> SuggestedModels => ["gpt-6-luna", "gpt-5.6-luna", "gpt-5-nano", "gpt-4.1-nano", "gpt-4.1-mini"];
+
+        private string apiKey = "";
+        private string modelName = "gpt-6-luna";
+        private string reasoningEffort = "none";
+
+        public string ApiKey
+        {
+            get => apiKey;
+            set
+            {
+                apiKey = value;
+                OnPropertyChanged("ApiKey");
+            }
+        }
+        public string ModelName
+        {
+            get => modelName;
+            set
+            {
+                modelName = value;
+                OnPropertyChanged("ModelName");
+            }
+        }
+        public string ReasoningEffort
+        {
+            get => reasoningEffort;
+            set
+            {
+                reasoningEffort = value;
+                OnPropertyChanged("ReasoningEffort");
+            }
+        }
+    }
+
     public class OpenRouterConfig : BaseLLMConfig
     {
         private string apiKey = "";

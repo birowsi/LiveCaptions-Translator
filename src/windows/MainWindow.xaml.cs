@@ -4,6 +4,7 @@ using System.Windows;
 using Wpf.Ui.Appearance;
 using Wpf.Ui.Controls;
 
+using LiveCaptionsTranslator.apis;
 using LiveCaptionsTranslator.utils;
 using LiveCaptionsTranslator.Utils;
 using Button = Wpf.Ui.Controls.Button;
@@ -44,6 +45,49 @@ namespace LiveCaptionsTranslator
 
             ToggleTopmost(Translator.Setting.MainWindow.Topmost);
             ShowLogCard(Translator.Setting.MainWindow.CaptionLogEnabled);
+
+            OpenAITranscriber.StatusChanged += () => Dispatcher.BeginInvoke(new Action(UpdateListenButton));
+            UsageTracker.Changed += () => Dispatcher.BeginInvoke(new Action(UpdateUsageText));
+            UpdateListenButton();
+            UpdateUsageText();
+        }
+
+        private void ListenButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (OpenAITranscriber.IsRunning)
+                OpenAITranscriber.Stop();
+            else
+                OpenAITranscriber.Start();
+            UpdateListenButton();
+        }
+
+        public void UpdateListenButton()
+        {
+            bool isOpenAI = Translator.Setting.Transcription.IsOpenAI;
+            ListenButton.Visibility = isOpenAI ? Visibility.Visible : Visibility.Collapsed;
+            if (ListenButton.Icon is SymbolIcon icon)
+            {
+                icon.Symbol = OpenAITranscriber.IsRunning ? SymbolRegular.Mic16 : SymbolRegular.MicOff16;
+                icon.Filled = OpenAITranscriber.IsRunning;
+            }
+            ListenButton.ToolTip = OpenAITranscriber.IsRunning
+                ? $"Stop Listening ({OpenAITranscriber.Status})"
+                : "Start Listening (OpenAI Speech Recognition)";
+        }
+
+        private void UpdateUsageText()
+        {
+            var usage = UsageTracker.Snapshot();
+            bool hasUsage = usage.TotalCost > 0 || usage.StartingBalance > 0;
+            UsageText.Visibility = hasUsage ? Visibility.Visible : Visibility.Collapsed;
+            UsageText.Text = usage.StartingBalance > 0
+                ? $"{UsageTracker.FormatUSD(usage.StartingBalance - usage.TotalCost)} left"
+                : UsageTracker.FormatUSD(usage.TotalCost);
+            UsageText.ToolTip =
+                $"Spent {UsageTracker.FormatUSD(usage.TotalCost)} since {usage.Since:yyyy-MM-dd} " +
+                $"(this session {UsageTracker.FormatUSD(UsageTracker.SessionCost)})\n" +
+                $"Speech recognition {UsageTracker.FormatUSD(usage.TranscriptionCost)} · " +
+                $"Translation {UsageTracker.FormatUSD(usage.TranslationCost)}";
         }
 
         private void TopmostButton_Click(object sender, RoutedEventArgs e)

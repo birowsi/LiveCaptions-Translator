@@ -69,6 +69,46 @@ namespace LiveCaptionsTranslator.apis
             }
         }
 
+        /// <summary>
+        /// Lists the models available to the signed-in ChatGPT account, in server order.
+        /// Throws on failure so the caller can show the reason.
+        /// </summary>
+        public static async Task<List<ModelInfo>> FetchChatGPTModelsAsync(CancellationToken token = default)
+        {
+            string accessToken = await ChatGPTAuth.GetAccessTokenAsync(token);
+
+            using var request = new HttpRequestMessage(HttpMethod.Get, "https://api.openai.com/v1/models");
+            request.Headers.Authorization = ChatGPTAuth.BearerHeader(accessToken);
+            using var response = await client.SendAsync(request, token);
+            string json = await response.Content.ReadAsStringAsync(token);
+            if (!response.IsSuccessStatusCode)
+            {
+                if ((int)response.StatusCode == 401)
+                    ChatGPTAuth.InvalidateAccessToken();
+                throw new HttpRequestException($"HTTP {(int)response.StatusCode}: {(json.Length > 200 ? json[..200] : json)}");
+            }
+
+            var result = new List<ModelInfo>();
+            using var doc = JsonDocument.Parse(json);
+            if (!doc.RootElement.TryGetProperty("models", out var modelsArray))
+                return result;
+
+            foreach (var model in modelsArray.EnumerateArray())
+            {
+                string visibility = model.TryGetProperty("visibility", out var visProp) ? visProp.GetString() : null;
+                if (visibility != "list")
+                    continue;
+
+                string slug = model.TryGetProperty("slug", out var slugProp) ? slugProp.GetString() : null;
+                if (string.IsNullOrEmpty(slug))
+                    continue;
+
+                string displayName = model.TryGetProperty("display_name", out var dnProp) ? dnProp.GetString() : slug;
+                result.Add(new ModelInfo { Id = slug, DisplayName = displayName ?? slug });
+            }
+            return result;
+        }
+
         public class ModelInfo
         {
             public string Id { get; set; }

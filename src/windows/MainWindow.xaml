@@ -38,6 +38,22 @@
                 </ui:TitleBar.Header>
                 <ui:TitleBar.TrailingContent>
                     <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
+                        <ui:TextBlock
+                            x:Name="UsageText"
+                            Margin="0,0,8,0"
+                            VerticalAlignment="Center"
+                            FontSize="12"
+                            Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                            Visibility="Collapsed" />
+                        <ui:Button
+                            x:Name="ListenButton"
+                            Margin="0,0,5,0"
+                            Appearance="Transparent"
+                            Click="ListenButton_Click"
+                            Icon="{ui:SymbolIcon MicOff16,
+                                                 Filled=False}"
+                            ToolTip="Start Listening (OpenAI Speech Recognition)"
+                            Visibility="Collapsed" />
                         <ui:Button
                             x:Name="CaptionLogButton"
                             Margin="0,0,5,0"
